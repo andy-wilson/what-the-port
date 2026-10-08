@@ -181,6 +181,9 @@ enum TerminalCommand {
             if let pane = server.paneWorkspace {
                 object["pane"] = ["workspace": pane.name, "link": pane.link.absoluteString]
             }
+            if let container = server.container {
+                object["container"] = ["id": container.id, "name": container.name, "image": container.image]
+            }
             if let agent = server.agent {
                 var session: [String: Any] = ["kind": agent.kind.rawValue, "id": agent.id]
                 session["title"] = agent.title
