@@ -34,6 +34,73 @@ final class DockerScanner: @unchecked Sendable {
     static let psFormat = "{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Ports}}\t{{.Label \"com.docker.compose.project\"}}\t{{.Label \"com.docker.compose.service\"}}\t{{.Label \"com.docker.compose.project.working_dir\"}}"
     static let statsFormat = "{{.ID}}\t{{.MemUsage}}\t{{.CPUPerc}}"
 
+    /// Apps launched from Finder have no shell PATH, so look where each runtime installs the CLI.
+    // ponytail: found once per launch; installing docker later needs an app restart.
+    static let executable: String? = {
+        let home = NSHomeDirectory()
+        return ["/usr/local/bin/docker", "/opt/homebrew/bin/docker", home + "/.orbstack/bin/docker",
+                home + "/.docker/bin/docker", home + "/.rd/bin/docker", "/Applications/Docker.app/Contents/Resources/bin/docker"]
+            .first { FileManager.default.isExecutableFile(atPath: $0) }
+    }()
+
+    private let lock = NSLock()
+    private var stats: [String: DockerStats] = [:]
+    private var isSampling = false
+    private var lastRequest = Date.distantPast
+
+    /// Running containers and the latest stats. A missing CLI, stopped daemon or
+    /// hung call gives an empty snapshot.
+    func snapshot() -> DockerSnapshot {
+        guard let docker = Self.executable,
+              let output = Self.run(docker, ["ps", "--format", Self.psFormat], timeout: 2) else { return DockerSnapshot() }
+        let containers = Self.parseContainers(output)
+        guard !containers.isEmpty else { return DockerSnapshot() }
+        lock.lock()
+        defer { lock.unlock() }
+        lastRequest = Date()
+        if !isSampling {
+            isSampling = true
+            DispatchQueue.global(qos: .utility).async { self.sample(docker) }
+        }
+        return DockerSnapshot(containers: containers, stats: stats)
+    }
+
+    /// `docker stats` takes about two seconds because it measures CPU over an
+    /// interval, so it runs back to back off the scan queue. Stops once scans
+    /// haven't asked for containers in 10 seconds.
+    private func sample(_ docker: String) {
+        while true {
+            let fresh = Self.run(docker, ["stats", "--no-stream", "--format", Self.statsFormat], timeout: 5).map(Self.parseStats) ?? [:]
+            lock.lock()
+            if Date().timeIntervalSince(lastRequest) > 10 {
+                stats = [:]
+                isSampling = false
+                lock.unlock()
+                return
+            }
+            stats = fresh
+            lock.unlock()
+            if fresh.isEmpty { Thread.sleep(forTimeInterval: 2) }
+        }
+    }
+
+    static func run(_ executable: String, _ arguments: [String], timeout: TimeInterval) -> String? {
+        let process = Process()
+        let output = Pipe()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+        process.standardOutput = output
+        process.standardError = FileHandle.nullDevice
+        do { try process.run() } catch { return nil }
+        let deadline = DispatchWorkItem { process.terminate() }
+        DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: deadline)
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        deadline.cancel()
+        guard process.terminationReason == .exit, process.terminationStatus == 0 else { return nil }
+        return String(decoding: data, as: UTF8.self)
+    }
+
     // MARK: - Parsing
 
     /// Containers that publish at least one TCP port on the host.

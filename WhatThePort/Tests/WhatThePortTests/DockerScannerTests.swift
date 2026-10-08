@@ -53,4 +53,19 @@ struct DockerScannerTests {
         #expect(DockerScanner.parseBytes("--") == nil)
         #expect(DockerScanner.parseBytes("12parsecs") == nil)
     }
+
+    @Test func runReturnsOutputOnSuccess() {
+        #expect(DockerScanner.run("/bin/echo", ["hi"], timeout: 2) == "hi\n")
+    }
+
+    @Test func runReturnsNilOnFailure() {
+        #expect(DockerScanner.run("/usr/bin/false", [], timeout: 2) == nil)
+        #expect(DockerScanner.run("/nonexistent/docker", [], timeout: 2) == nil)
+    }
+
+    @Test func runGivesUpAfterTimeout() {
+        let start = Date()
+        #expect(DockerScanner.run("/bin/sleep", ["5"], timeout: 0.5) == nil)
+        #expect(Date().timeIntervalSince(start) < 2)
+    }
 }
