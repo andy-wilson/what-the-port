@@ -43,7 +43,7 @@ wtp list --json   Print servers as JSON
 wtp --version     Print the version
 ```
 
-`wtp list --json` prints an array of servers. Each has `port`, `url`, `pid`, `name`, `branch`, `framework`, `folder`, `command`, `startedAt`, `memoryBytes`, `cpuPercent`, `status` (`running`, `attention` or `idle`), `protected`, `processes` and, when an agent started it, `session` (`kind`, `id`, `title`).
+`wtp list --json` prints an array of servers. Each has `port`, `url`, `pid`, `name`, `branch`, `framework`, `folder`, `command`, `startedAt`, `memoryBytes`, `cpuPercent`, `status` (`running`, `attention` or `idle`), `protected`, `processes`, `container` (`id`, `name`, `image`) for Docker containers and, when an agent started it, `session` (`kind`, `id`, `title`). Container rows have no `pid` and an empty `processes` array, and are stopped with `docker stop <id>`.
 
 ## How it works
 

@@ -938,7 +938,7 @@ final class TerminalApp {
                 let isListener = process.pid == server.pid
                 let filled = max(Int((8 * Double(process.memory) / Double(largest)).rounded()), 1)
                 let right: Line = [
-                    Span(String(process.pid).padding(toLength: 8, withPad: " ", startingAt: 0), palette.text3),
+                    Span((server.container == nil ? String(process.pid) : "").padding(toLength: 8, withPad: " ", startingAt: 0), palette.text3),
                     Span(String(repeating: "━", count: filled), isListener ? palette.text1 : palette.text2),
                     Span(String(repeating: "─", count: 8 - filled), palette.track),
                     Span(padLeft(Format.bytesString(process.memory), 10), palette.text1),

@@ -210,8 +210,10 @@ struct ServerDetailView: View {
                                 .truncationMode(.tail)
                                 .help(process.name)
                             Spacer(minLength: 8)
-                            Text(String(process.pid)).font(Theme.monoCaption).foregroundStyle(Theme.text3)
-                                .frame(width: 52, alignment: .leading)
+                            if server.container == nil {
+                                Text(String(process.pid)).font(Theme.monoCaption).foregroundStyle(Theme.text3)
+                                    .frame(width: 52, alignment: .leading)
+                            }
                             Capsule().fill(Theme.fill).frame(width: 64, height: 4)
                                 .overlay(alignment: .leading) {
                                     Capsule().fill(Theme.text1.opacity(process.pid == server.pid ? 0.75 : 0.45))
