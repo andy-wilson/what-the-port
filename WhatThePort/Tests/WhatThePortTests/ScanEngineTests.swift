@@ -255,6 +255,7 @@ struct ScanEngineTests {
         #expect(web.processStarts.isEmpty)
         #expect(web.isProtected)
         #expect(web.canRestart)
+        #expect(web.getsAlerts)
         #expect(web.locationLabel == "Docker · \((NSTemporaryDirectory() as NSString).lastPathComponent)")
     }
 
@@ -292,5 +293,15 @@ struct ScanEngineTests {
         let resources = ServerResources(f.scan())
         #expect(resources.memory == 150)
         #expect(resources.memoryByPort == [3000: 50, 3001: 50, 3002: 50])
+    }
+
+    @Test func protectedProcessRowsGetNoAlerts() {
+        let f = Fixture()
+        f.config.protected = ["node"]
+        f.process(20)
+        f.listen(20, port: 4000)
+        let row = f.scan()[0]
+        #expect(row.isProtected)
+        #expect(!row.getsAlerts)
     }
 }

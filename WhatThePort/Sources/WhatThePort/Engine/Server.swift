@@ -84,6 +84,9 @@ struct Server: Identifiable {
     /// Containers restart through docker; processes need their command and folder.
     var canRestart: Bool { container != nil || (launch != nil && cwdExists) }
 
+    /// Protected databases stay quiet, but containers are only protected from Clean up.
+    var getsAlerts: Bool { !isProtected || container != nil }
+
     /// Memory growth across the recorded history window (up to 10 minutes).
     var memoryGrowth: Int64 {
         guard let first = history.first, let last = history.last,
