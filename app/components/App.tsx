@@ -269,7 +269,7 @@ function ListView({ demo, l }: { demo: Demo; l: Localizer }) {
           </span>
         </div>
         <div className={styles.shareBar} aria-label="Mac memory usage">
-          {demo.running.map((s) => (
+          {demo.running.filter((s) => !(cleaning && s.container)).map((s) => (
             <button
               key={s.port}
               type="button"
@@ -542,7 +542,7 @@ function DetailView({ demo, server, l }: { demo: Demo; server: Server; l: Locali
         ['Branch', server.branch],
       ]
     : [
-        ['Branch', server.branch],
+        ...(server.container ? [] : [['Branch', server.branch] as [string, string]]),
         ['Folder', server.info[0][1]],
       ]
   const hiddenInfo: [string, string][] = server.info
@@ -779,10 +779,12 @@ function DetailView({ demo, server, l }: { demo: Demo; server: Server; l: Locali
         <button type="button" className={styles.primaryAction} onClick={() => trigger('open')}>
           {flash === 'open' ? 'Opened in your browser' : l.format('Open localhost:%@', server.port)}
         </button>
-        <button type="button" className={styles.secondaryAction} onClick={() => trigger('preview')}>
-          <VercelIcon fill="rgb(235 235 245 / 75%)" width={11} height={10} />
-          {flash === 'preview' ? 'Opened' : l.text('Preview')}
-        </button>
+        {!server.container && (
+          <button type="button" className={styles.secondaryAction} onClick={() => trigger('preview')}>
+            <VercelIcon fill="rgb(235 235 245 / 75%)" width={11} height={10} />
+            {flash === 'preview' ? 'Opened' : l.text('Preview')}
+          </button>
+        )}
         <button type="button" className={styles.moreAction} aria-label="More">
           <span />
           <span />
