@@ -18,6 +18,13 @@ On macOS, Docker Desktop's published ports are held by `com.docker.backend` insi
 - Reads the labels `com.docker.compose.project`, `com.docker.compose.service` and `com.docker.compose.project.working_dir`.
 - If docker is missing, the daemon is down, the call times out or the output can't be parsed, the result is an empty list and the scan carries on as before.
 
+### Stats: `DockerScanner` background sampler
+
+- A background loop on its own queue runs `docker stats --no-stream --format '{{json .}}'` back to back, with a 5 second timeout per call. Each call takes about 2 seconds because docker samples CPU over an interval, so it runs off the scan queue and the scan reads the most recent cached values.
+- From each entry it parses `ID`, `MemUsage` (the part before ` / `, with units B, KiB, MiB, GiB, kB, MB, GB) and `CPUPerc`.
+- The loop starts when the first scan sees running containers and stops when none are left or `showDocker` is off. A failed call leaves the cache empty, and container rows then fall back to 0.
+- Values lag by at most one sample (about 2 seconds), which is close to the default scan interval.
+
 ### Model
 
 `Server` gains `container: DockerContainer?` with `id`, `name`, `image`, `composeProject`, `composeService`.
@@ -28,7 +35,7 @@ On macOS, Docker Desktop's published ports are held by `com.docker.backend` insi
 - For every published host port inside `minPort...maxPort`, it adds one `Server`:
   - `pid` and `rootPid` are 0, and `processes` and `processStarts` are empty, so the signal-based stop path has nothing to signal.
   - `processName` is `docker`, `command` is the image, and `cwd` is the Compose working directory, or nil if there is none. The existing `ProjectResolver` then supplies the project name, branch and editor actions.
-  - `memory` and `cpu` are 0. History and last-active tracking use the same key scheme with the container id in place of the root pid.
+  - `memory` and `cpu` come from the cached stats for that container, or 0 before the first sample. The container's memory counts once even when it publishes several ports, matching how other servers count shared processes. History and last-active tracking use the same key scheme with the container id in place of the root pid. As a result the memory chart, the over-threshold alert, leak warnings and the attention status all work for containers.
 - Any lsof listener on a port a container publishes is skipped. This covers `com.docker.backend`, `docker-proxy` and the OrbStack helpers.
 - `ScanConfig.showDocker` comes from `Preferences.showDocker` (default on). When it is off, no container rows are added and the lsof rows are not touched.
 
@@ -41,21 +48,22 @@ On macOS, Docker Desktop's published ports are held by `com.docker.backend` insi
 ### UI
 
 - The row title is the container name, with a "Docker" tag.
-- The detail view shows the image and Compose project/service in place of the process tree. Memory and CPU show "—".
+- The detail view shows memory and CPU like any server, with the image and Compose project/service in place of the process tree.
 - New strings are localized in all eight languages.
 
 ### Out of scope (v1)
 
-- Container memory and CPU. `docker stats --no-stream` takes about 2 seconds, which is too slow for every scan. A later version could sample it on a slower background timer.
 - Containers that are not running, and UDP ports.
 
 ## Testing
 
 - Unit tests (`ScanEngineTests`, plus a new `DockerScannerTests`):
+  - Parsing `docker stats` JSON lines and memory units.
   - Parsing `docker ps` JSON lines, port strings (IPv4/IPv6 duplicates, ranges, UDP ignored, unpublished ports ignored) and Compose labels.
   - Container rows replace the lsof row on the same port, honour the port range, and are absent when `showDocker` is off.
   - `cleanUpReason` is nil for container rows.
-- Manual check against the running Docker Desktop containers: rows appear, Stop and Restart work, and Docker Desktop itself stays up.
+  - Container rows take memory and CPU from the stats cache, and grow a history across scans.
+- Manual check against the running Docker Desktop containers: rows appear with memory matching `docker stats`, Stop and Restart work, and Docker Desktop itself stays up.
 
 ## Marketing site and docs (AGENTS.md)
 
