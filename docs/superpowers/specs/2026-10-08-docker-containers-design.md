@@ -35,7 +35,7 @@ On macOS, Docker Desktop's published ports are held by `com.docker.backend` insi
 - For every published host port inside `minPort...maxPort`, it adds one `Server`:
   - `pid` and `rootPid` are 0, and `processes` and `processStarts` are empty, so the signal-based stop path has nothing to signal.
   - `processName` is `docker`, `command` is the image, and `cwd` is the Compose working directory, or nil if there is none. The existing `ProjectResolver` then supplies the project name, branch and editor actions.
-  - `memory` and `cpu` come from the cached stats for that container, or 0 before the first sample. The container's memory counts once even when it publishes several ports, matching how other servers count shared processes. History and last-active tracking use the same key scheme with the container id in place of the root pid. As a result the memory chart, the over-threshold alert, leak warnings and the attention status all work for containers.
+  - `memory` and `cpu` come from the cached stats for that container, or 0 before the first sample. When a container publishes several ports, each of its rows shows the container's full memory, the same way two ports on one process tree each show that tree's memory. History and last-active tracking use the same key scheme with the container id in place of the root pid. As a result the memory chart, the over-threshold alert, leak warnings and the attention status all work for containers.
 - Any lsof listener on a port a container publishes is skipped. This covers `com.docker.backend`, `docker-proxy` and the OrbStack helpers.
 - `ScanConfig.showDocker` comes from `Preferences.showDocker` (default on). When it is off, no container rows are added and the lsof rows are not touched.
 
